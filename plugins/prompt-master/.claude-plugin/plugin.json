@@ -1,0 +1,6 @@
+{
+  "name": "prompt-master",
+  "version": "0.1.0",
+  "description": "Rewrites your rough prompt into a clearer, sharper one in the prompt box, with a one-click Prompt Master button",
+  "types": "./types/index.d.ts"
+}

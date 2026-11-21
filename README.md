@@ -38,6 +38,20 @@ Reading a folder is one model call per new project; the review after each
 reply is one quick extra call. Both count toward your Claude usage. Turn the
 review off with `/next auto off` or the **Update from chat** switch in the pane.
 
+## Prompt Master (`prompt-master`)
+
+Turns a rough prompt into a clearer, sharper one before you send it.
+
+- Type a rough prompt, then click **✨ Prompt Master** above the prompt box.
+  The rewrite replaces your draft; review or edit it, then press Enter.
+  **Undo** puts your original back.
+- `/prompt-master <rough prompt>` does the same from a command.
+- In a session with a conversation it rewrites with that context, so "fix
+  that bug" names the actual bug and file; in a fresh session it uses Sonnet.
+  Each rewrite is one model call.
+
+Install it the same way as below, with `prompt-master` in place of `todo`.
+
 ## Install
 
 At the prompt of a Claude Code terminal session:

@@ -1,11 +1,18 @@
 {
   "name": "local-mods",
-  "owner": { "name": "scobane" },
+  "owner": {
+    "name": "scobane"
+  },
   "plugins": [
     {
       "name": "todo",
       "source": "./plugins/todo",
       "description": "A next-steps assistant: each project's goal and one clear next step, kept current by Claude"
+    },
+    {
+      "name": "prompt-master",
+      "source": "./plugins/prompt-master",
+      "description": "Rewrites your rough prompt into a clearer, sharper one in the prompt box, with a one-click Prompt Master button"
     }
   ]
 }
