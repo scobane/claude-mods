@@ -614,3 +614,22 @@ test("where the prompt box can't be filled, Prompt Master's rewrite is sent inst
   expect(sentTexts[sentTexts.length - 1]).toContain('Add the search box the README promises')
   await ui.unmount()
 })
+
+test("when Prompt Master says the rewrite is in the box, nothing else is sent, even if the box reads empty", async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, sentTexts } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  on('command.list', () => ({
+    value: [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }],
+  }))
+  // The fill lands after the read: the box still reads empty.
+  on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
+  on('command.run', () => ({ text: 'Rewritten prompt is in the box: edit it or press Enter to send.' }))
+  await startInFolder($, clock)
+
+  const before = sentTexts.length
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'do-1' })
+  expect(sentTexts.length).toBe(before)
+  await ui.unmount()
+})

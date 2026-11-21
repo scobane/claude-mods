@@ -242,8 +242,11 @@ async function startSuggestion(
     const box = await $.prompt.read()
     if (commands.some(c => c.name === 'prompt-master') && box.text.trim() === '') {
       const ran = await $.command.run({ command: 'prompt-master', args: draft } as Parameters<typeof $.command.run>[0])
+      // Prompt Master says when its rewrite is in the box; reading the box
+      // back can miss it (the fill reaches the surface after the read).
+      const isInBox = /^Rewritten prompt is in the box/.test(ran.text?.trim() ?? '')
       const after = await $.prompt.read()
-      if (after.text.trim() !== '') {
+      if (isInBox || after.text.trim() !== '') {
         $.ui.toast('Prompt Master sharpened it: review it in the prompt box, then press Enter')
         return
       }
