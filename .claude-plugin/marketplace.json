@@ -7,7 +7,7 @@
     {
       "name": "todo",
       "source": "./plugins/todo",
-      "description": "A next-steps assistant: each project's goal and one clear next step, kept current by Claude"
+      "description": "Suggestions for your project: specific things you can do to improve it, drawn from its folder and your chat"
     },
     {
       "name": "prompt-master",

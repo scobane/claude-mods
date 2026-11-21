@@ -1,6 +1,6 @@
 {
   "name": "todo",
-  "version": "0.3.0",
-  "description": "A next-steps assistant: each project's goal and one clear next step, kept current by Claude",
+  "version": "0.5.0",
+  "description": "Suggestions for your project: specific things you can do to improve it, drawn from its folder and your chat",
   "types": "./types/index.d.ts"
 }

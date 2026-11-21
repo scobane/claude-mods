@@ -3,40 +3,49 @@
 Mods for [Claude Code](https://claude.com/claude-code). This repository is a
 plugin marketplace, so each mod installs with one line.
 
-## Next steps (`todo`)
+## Suggestions (`todo`)
 
-A project assistant in a pane beside the chat. For each of your projects it
-keeps a goal, the **one next step**, and a short queue of what comes after.
+A pane beside the chat with 3–5 specific suggestions for getting the project
+you're working on closer to its goal: "here is what else you can do".
 
-- **Knows your project.** A session started in a project folder opens on that
-  folder's project. The first time, it reads the folder (README, notes, plans,
-  recently changed files) and drafts the goal and first steps.
-- **Keeps itself current.** After each of Claude's replies it reviews the chat
-  in the background: it ticks off what you finished, adds work you mention as
-  small concrete steps, and records goals you state. A short pop-up says what
-  changed.
-- **Helps you start.** Buttons on the next step: **Done**, **Help me start**
-  (Claude breaks it down with you), **Later**. When nothing is queued:
-  **Draft from folder** or **Plan with Claude**.
-- **Works across projects.** Other projects are listed with their own next
-  step; click one to switch to it.
+- **Grounded in your project.** It reads the project folder (README, notes,
+  plans and the most recently changed text and code files) and the
+  conversation. Each suggestion says where it came from ("from src/app.js",
+  "from chat"); no generic advice.
+- **Tied to your goal.** Each suggestion says how it moves the project toward
+  the goal shown in the pane; improvements that don't serve the goal are left
+  out. They're ranked by how much they move the goal, not by how easy they are.
+- **Four kinds:** *Missing* (something the goal needs that isn't there),
+  *Fix* (a weak spot that holds the goal back), *Quick win* (under ~15
+  minutes) and *Creative idea* (a less obvious angle, feature or approach,
+  still grounded in your files or chat). Every set has at least one creative
+  idea.
+- **On each card:** **Do it with Claude** starts working on it, **Done** and
+  **Not useful** clear it. Cleared suggestions are never suggested again.
+- **Follows the work.** After each of Claude's replies it re-ranks the list
+  around what was just done and what's in progress: it ticks off what the
+  exchange finished, leads with the next useful moves for the work at hand,
+  keeps open cards that still apply, and leaves the list alone after small
+  talk. **Refresh suggestions** gets a fresh set from the whole project.
+- A session started in a project folder opens on that folder's project; other
+  projects are listed with their suggestion count.
 
 ### Commands
 
 | Command | What it does |
 | --- | --- |
-| `/next` | Open the pane |
-| `/next <step>` | Add a step to this project |
-| `/next scan` | Re-read the project folder and draft steps |
-| `/next auto on` / `/next auto off` | Turn the after-each-reply review on or off |
+| `/suggest` | Open the pane |
+| `/suggest refresh` | Get a fresh set of suggestions |
+| `/suggest auto on` / `/suggest auto off` | Turn the after-each-reply check on or off |
 
-`/todo` works the same as `/next`.
+`/next` and `/todo` work the same as `/suggest`.
 
 ### Cost
 
-Reading a folder is one model call per new project; the review after each
-reply is one quick extra call. Both count toward your Claude usage. Turn the
-review off with `/next auto off` or the **Update from chat** switch in the pane.
+A fresh set is one model call (when you refresh, or the first time a project
+folder has none); the check after each reply is one quick extra call. Both
+count toward your Claude usage. Turn the check off with `/suggest auto off` or
+the **Update after replies** switch in the pane.
 
 ## Prompt Master (`prompt-master`)
 
