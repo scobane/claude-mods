@@ -422,11 +422,11 @@ export const register: Register = on => {
           </Text>
         )}
 
-        {open.map(s => (
+        {open.map((s, i) => (
           <Box key={`card-${s.id}`} flexDirection="column" borderStyle="round" paddingX={1}>
             <Text bold>{s.title}</Text>
             <Text dimColor size="caption">
-              {KIND_LABEL[s.kind]} · {s.effort} · from {s.source}
+              #{i + 1} · {KIND_LABEL[s.kind]} · {s.effort} · from {s.source}
             </Text>
             <Text>{s.why}</Text>
             <Box flexDirection="row" gap={1}>

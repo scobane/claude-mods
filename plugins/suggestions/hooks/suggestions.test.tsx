@@ -123,12 +123,22 @@ test('a project folder gets grounded suggestions from its files', async ($, on) 
   // Code two folders down is found and read too.
   expect(prompts[0]).toContain('src/lib/search.js')
   expect(prompts[0]).toContain('export function search(q)')
-  // The prompt ties every suggestion to the goal, ranks by impact and asks
+  // The prompt ties every suggestion to the goal, ranks by relevance and asks
   // for a creative idea.
   expect(prompts[0]).toContain('Goal: not set yet.')
   expect(prompts[0]).toContain("Leave out improvements that don't connect to the goal")
   expect(prompts[0]).toContain('how doing it advances the goal')
+  expect(prompts[0]).toContain('Order them from most relevant to least relevant')
+  expect(prompts[0]).toContain('The order is shown top to bottom')
   expect(prompts[0]).toContain("How easy something is doesn't decide its place")
+  expect(prompts[0]).toContain('(kept and new) from most to least relevant:')
+
+  // The pane shows them in that order, numbered from the top.
+  {
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+    expect((await ui.find({ type: 'Text', text: /^#2 / }))?.text).toBe('#2 · Missing · medium · from README.md')
+    await ui.unmount()
+  }
   expect(prompts[0]).toContain('At least one must be kind "idea"')
   expect(listed.some(path => path.includes('node_modules'))).toBe(false)
 
@@ -138,7 +148,7 @@ test('a project folder gets grounded suggestions from its files', async ($, on) 
     expect((await ui.find({ type: 'Text', text: /^Escape recipe/ }))?.text).toBe(
       'Escape recipe text before inserting it into the page',
     )
-    expect((await ui.find({ type: 'Text', text: /from src/ }))?.text).toBe('Fix · quick · from src/app.js')
+    expect((await ui.find({ type: 'Text', text: /from src/ }))?.text).toBe('#1 · Fix · quick · from src/app.js')
     expect(await ui.find({ type: 'Button', key: 'do-2' })).toBeDefined()
     await ui.unmount()
   }
@@ -340,7 +350,7 @@ function openTitles(disk: Map<string, unknown>): string[] {
   return (saved[0]?.suggestions ?? []).filter(s => s.status === 'open').map(s => s.title)
 }
 
-test('a set of more than five keeps its creative idea, in goal-impact order', async ($, on) => {
+test('a set of more than five keeps its creative idea, most relevant first', async ($, on) => {
   const disk = new Map<string, unknown>()
   const { clock } = engine(on, disk)
   on('model.complete', () => ({
@@ -365,13 +375,13 @@ test('a set of more than five keeps its creative idea, in goal-impact order', as
   expect(openTitles(disk)).toEqual(['A', 'B', 'C', 'D', 'Let relatives add recipes by email'])
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /^Creative idea/ }))?.text).toBe(
-    'Creative idea · medium · from src/app.js',
+  expect((await ui.find({ type: 'Text', text: /Creative idea ·/ }))?.text).toBe(
+    '#5 · Creative idea · medium · from src/app.js',
   )
   await ui.unmount()
 })
 
-test('a higher-impact addition after a reply pushes out the lowest, never the only idea', async ($, on) => {
+test('a more relevant addition after a reply pushes out the least relevant, never the only idea', async ($, on) => {
   const disk = new Map<string, unknown>()
   const { clock } = engine(on, disk)
   on('model.complete', () => ({

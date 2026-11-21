@@ -20,7 +20,7 @@ export type Entry = Kept | Proposed
 export type Answer = {
   goal?: string
   project?: string
-  // A refresh's answer in ranked order: kept open suggestions and new ones.
+  // A refresh's answer, most relevant first: kept open suggestions and new ones.
   order: Entry[]
   // The new suggestions alone (what an after-reply check adds).
   add: Proposed[]
@@ -116,7 +116,7 @@ export function capKeepingIdea<T extends { kind: SuggestionKind }>(items: T[], m
 
 // A full refresh, merged with what is open: open suggestions the answer keeps
 // stay (same card, same id) at their new ranked place, new ones join them in
-// the model's goal-impact order, and open ones it leaves out go. What was done
+// the model's most-to-least-relevant order, and open ones it leaves out go. What was done
 // or dismissed stays, so it isn't suggested again.
 export function applyRefresh(list: Project[], projectName: string, a: Answer) {
   const [withProject, pid] = ensureProject(list, projectName)
@@ -205,7 +205,7 @@ export function briefing(list: Project[], f: Focus | null): string {
 // What every suggestion must do: serve the goal, and say how.
 export const GOAL_RULES = `Every suggestion must move the project closer to its goal. Leave out improvements that don't connect to the goal, however good they would be in general.`
 
-export const RANKING = `Order them by how much each one moves the project toward the goal, biggest first. How easy something is doesn't decide its place: a quick change comes first only if it does the most for the goal.`
+export const RANKING = `Order them from most relevant to least relevant: first the one that matters most right now, for the work in progress and for the goal; last the one that matters least. The order is shown top to bottom, so put the one they should look at first at the top. How easy something is doesn't decide its place.`
 
 export const CREATIVE = `At least one must be kind "idea": a creative, less obvious move they probably haven't considered - a new angle, feature, audience or approach - that could take the project toward its goal in a way the obvious fixes won't. It must still grow out of something specific you can see in their files or the conversation (name it), not a generic idea that would fit any project.`
 
@@ -242,7 +242,7 @@ ${describeHandled(p)}
 Give the 3-5 best suggestions for what else they can do to get closer to the goal. Keep an open one that still applies and still serves the goal by putting {"keep":"<its id>"} at its ranked place instead of writing it again; leave out open ones that no longer apply or have been beaten by something better. Don't restate a kept one as a new suggestion. ${GOAL_RULES} ${RANKING} ${CREATIVE} ${GROUNDING}
 ${KIND_RULES}
 
-Answer with one JSON object and nothing else, the suggestions (kept and new) in ranked order:
+Answer with one JSON object and nothing else, the suggestions (kept and new) from most to least relevant:
 {"goal":"<only if not set>","suggestions":[{"keep":"4"},{"kind":"fix","title":"...","why":"<one sentence: what you noticed; how it advances the goal>","source":"src/app.py","effort":"quick"}]}
 ${
   folderText
@@ -260,13 +260,13 @@ ${goal}
 
 Weigh the LATEST exchange most heavily: what the person just asked for, what the assistant just did or changed (which files), what is still in progress or half-finished, and what the assistant's reply below says, flags or leaves open. Earlier conversation and the project's files are background.
 
-Open suggestions, ranked:
+Open suggestions, most relevant first:
 ${describeOpen(p)}
 
 Already handled, don't suggest these again:
 ${describeHandled(p)}
 
-Give the list as it should stand right now: 3-5 suggestions, ranked by how much each moves the project toward the goal from where the work is now.
+Give the list as it should stand right now: 3-5 suggestions, most relevant first, judged by where the work is now and the goal.
 - Lead with the next useful moves for the work in progress: what to do right after what was just done, what the reply left open or flagged, what the change just made needs next (wiring it in, trying it, the obvious follow-on), or a risk it just introduced.
 - Keep an open suggestion that still applies by putting {"keep":"<its id>"} at its ranked place instead of writing it again; leave out ones the work has moved past. Don't restate a kept one as new.
 - "done": ids of open suggestions the latest exchange completed.
@@ -284,8 +284,8 @@ The assistant's latest reply:
 ${lastReply}
 """
 
-Answer with one JSON object and nothing else, the suggestions (kept and new) in ranked order:
+Answer with one JSON object and nothing else, the suggestions (kept and new) from most to least relevant:
 {"done":["3"],"suggestions":[{"kind":"gap","title":"...","why":"<one sentence: what you noticed; how it advances the goal>","source":"chat: the fix just made","effort":"quick"},{"keep":"4"}]}`
 }
 
-export const GUIDANCE = `The person has a Suggestions pane beside this chat (the "suggestions" mod). It shows 3-5 specific suggestions for moving the project they're working on toward its goal, ranked by impact and including at least one creative idea, drawn from the project's folder and this conversation, and after each of your replies it re-ranks them around the work in progress. A [Suggestions pane] note lists the open suggestions with the person's message whenever they change. When one is relevant to what the person is doing, you may mention it briefly; don't manage or repeat the list. When the person asks you to work on one, just do the work.`
+export const GUIDANCE = `The person has a Suggestions pane beside this chat (the "suggestions" mod). It shows 3-5 specific suggestions for moving the project they're working on toward its goal, ranked from most to least relevant and including at least one creative idea, drawn from the project's folder and this conversation, and after each of your replies it re-ranks them around the work in progress. A [Suggestions pane] note lists the open suggestions with the person's message whenever they change. When one is relevant to what the person is doing, you may mention it briefly; don't manage or repeat the list. When the person asks you to work on one, just do the work.`

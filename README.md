@@ -14,7 +14,8 @@ you're working on closer to its goal: "here is what else you can do".
   "from chat"); no generic advice.
 - **Tied to your goal.** Each suggestion says how it moves the project toward
   the goal shown in the pane; improvements that don't serve the goal are left
-  out. They're ranked by how much they move the goal, not by how easy they are.
+  out. They're ranked top to bottom from most to least relevant to your current
+  work and the goal, numbered #1, #2, …, not by how easy they are.
 - **Four kinds:** *Missing* (something the goal needs that isn't there),
   *Fix* (a weak spot that holds the goal back), *Quick win* (under ~15
   minutes) and *Creative idea* (a less obvious angle, feature or approach,
