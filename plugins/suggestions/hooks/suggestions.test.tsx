@@ -1,9 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
 
 const PANE = {
-  plugin: 'todo',
+  plugin: 'suggestions',
   component: 'Pane',
-  requestId: 'todo',
+  requestId: 'suggestions',
   props: {
     title: 'Suggestions',
     isFocused: false,
@@ -326,7 +326,7 @@ test('the system prompt tells Claude about the pane', async ($, on) => {
     outputStyle: null,
     traits: [],
   })
-  expect(composed.sections.map(one => one.id)).toEqual(['intro', 'todo:guidance'])
+  expect(composed.sections.map(one => one.id)).toEqual(['intro', 'suggestions:guidance'])
 })
 
 function suggestion(kind: string, title: string, rank?: number) {
@@ -530,4 +530,51 @@ test('cards stay short: one-sentence reasons, overlong text clipped at a word', 
   expect(card?.why.includes('  ')).toBe(false)
   // A title within the limit is kept whole.
   expect(card?.title).toBe('Share one template across every recipe section of the site please')
+})
+
+test('Do it with Claude goes through Prompt Master when it can, and sends directly when not', async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, seen } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  let hasPromptMaster = true
+  let box = ''
+  const rewrites: string[] = []
+  on('command.list', () => ({
+    value: hasPromptMaster
+      ? [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }]
+      : [],
+  }))
+  on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))
+  on('command.run', (_, e) => {
+    rewrites.push(e.args)
+    box = `SHARPENED: ${e.args}`
+    return { text: 'Rewritten prompt is in the box: edit it or press Enter to send.' }
+  })
+  await startInFolder($, clock)
+  const sent = () => seen.length
+
+  // 1. Prompt Master installed, empty box: the rewrite lands in the box, nothing is sent.
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  const before = sent()
+  await ui.press({ key: 'do-1' })
+  expect(rewrites.length).toBe(1)
+  expect(rewrites[0]).toContain('Escape recipe text before inserting it into the page')
+  expect(box.startsWith('SHARPENED:')).toBe(true)
+  expect(sent()).toBe(before)
+
+  // 2. The person has their own draft in the box: it is left alone and the
+  //    suggestion is sent as it is.
+  box = 'my own half-written prompt'
+  await ui.press({ key: 'do-2' })
+  expect(rewrites.length).toBe(1)
+  expect(box).toBe('my own half-written prompt')
+  expect(sent()).toBe(before + 1)
+
+  // 3. No Prompt Master: sent as it is.
+  hasPromptMaster = false
+  box = ''
+  await ui.press({ key: 'do-1' })
+  expect(rewrites.length).toBe(1)
+  expect(sent()).toBe(before + 2)
+  await ui.unmount()
 })

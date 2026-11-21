@@ -1,12 +1,12 @@
 {
-  "name": "local-mods",
+  "name": "claude-mods",
   "owner": {
     "name": "scobane"
   },
   "plugins": [
     {
-      "name": "todo",
-      "source": "./plugins/todo",
+      "name": "suggestions",
+      "source": "./plugins/suggestions",
       "description": "Suggestions for your project: specific things you can do to improve it, drawn from its folder and your chat"
     },
     {

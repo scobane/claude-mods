@@ -3,7 +3,7 @@
 Mods for [Claude Code](https://claude.com/claude-code). This repository is a
 plugin marketplace, so each mod installs with one line.
 
-## Suggestions (`todo`)
+## Suggestions (`suggestions`)
 
 A pane beside the chat with 3–5 specific suggestions for getting the project
 you're working on closer to its goal: "here is what else you can do".
@@ -22,6 +22,9 @@ you're working on closer to its goal: "here is what else you can do".
   idea.
 - **On each card:** **Do it with Claude** starts working on it, **Done** and
   **Not useful** clear it. Cleared suggestions are never suggested again.
+  With **Prompt Master** installed too, **Do it with Claude** first sharpens
+  the request and puts it in the prompt box to review and send (unless you
+  already have a draft there).
 - **Follows the work.** After each of Claude's replies it re-ranks the list
   around what was just done and what's in progress: it ticks off what the
   exchange finished, leads with the next useful moves for the work at hand,
@@ -59,14 +62,14 @@ Turns a rough prompt into a clearer, sharper one before you send it.
   that bug" names the actual bug and file; in a fresh session it uses Sonnet.
   Each rewrite is one model call.
 
-Install it the same way as below, with `prompt-master` in place of `todo`.
+Install it the same way as below, with `prompt-master` in place of `suggestions`.
 
 ## Install
 
 At the prompt of a Claude Code terminal session:
 
 ```
-/plugin install todo --marketplace scobane/claude-mods
+/plugin install suggestions --marketplace scobane/claude-mods
 ```
 
 Answer `y` to add the marketplace, then pick a scope (Enter for your user
@@ -75,7 +78,7 @@ account, so it works in every project).
 From a shell:
 
 ```
-claude plugin install todo --marketplace scobane/claude-mods
+claude plugin install suggestions --marketplace scobane/claude-mods
 ```
 
 In the Claude desktop app, where `/plugin` does not run: click **+** next to
@@ -85,7 +88,7 @@ the prompt box, then **Plugins**, **Add marketplace** with
 To use it in one project folder only, run this inside that folder:
 
 ```
-claude plugin install todo@local-mods --scope local
+claude plugin install suggestions@claude-mods --scope local
 ```
 
 ## Developing
@@ -93,6 +96,6 @@ claude plugin install todo@local-mods --scope local
 Each mod lives in `plugins/<mod>/`. Check a change with:
 
 ```
-claude plugin validate plugins/todo
-claude plugin test plugins/todo
+claude plugin validate plugins/suggestions
+claude plugin test plugins/suggestions
 ```

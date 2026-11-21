@@ -3,7 +3,7 @@ import type { CoreEngineInterface, Register } from 'claude-code'
 
 import type { Effort, Focus, Project, Suggestion, SuggestionKind } from '../types'
 
-const PANE = 'todo'
+const PANE = 'suggestions'
 const TITLE = 'Suggestions'
 const STORE_KEY = 'suggestions'
 const OLD_STORE_KEY = 'projects'
@@ -13,19 +13,19 @@ const MAX_OPEN = 5
 const MAX_HISTORY = 30
 
 // Every project and its suggestions. Change the shape tag if the types change.
-const projects = atom({ plugin: 'todo', key: 'projects' } as const, [] as Project[], {
+const projects = atom({ plugin: 'suggestions', key: 'projects' } as const, [] as Project[], {
   shape: 'suggestions-1',
 })
 // The project this session works on, if any.
-const focus = atom({ plugin: 'todo', key: 'focus' } as const, null as Focus | null, {
+const focus = atom({ plugin: 'suggestions', key: 'focus' } as const, null as Focus | null, {
   shape: 'focus-1',
 })
 // What the pane is doing in the background ("Looking at recipe-site…").
-const busy = atom({ plugin: 'todo', key: 'busy' } as const, null as string | null, {
+const busy = atom({ plugin: 'suggestions', key: 'busy' } as const, null as string | null, {
   shape: 'busy-1',
 })
 // Whether suggestions update themselves after Claude's replies.
-const auto = atom({ plugin: 'todo', key: 'auto' } as const, true as boolean, {
+const auto = atom({ plugin: 'suggestions', key: 'auto' } as const, true as boolean, {
   shape: 'auto-1',
 })
 
@@ -437,7 +437,7 @@ Answer with one JSON object and nothing else, the suggestions (kept and new) in 
 {"done":["3"],"suggestions":[{"kind":"gap","title":"...","why":"<one sentence: what you noticed; how it advances the goal>","source":"chat: the fix just made","effort":"quick"},{"keep":"4"}]}`
 }
 
-const GUIDANCE = `The person has a Suggestions pane beside this chat (the "todo" mod). It shows 3-5 specific suggestions for moving the project they're working on toward its goal, ranked by impact and including at least one creative idea, drawn from the project's folder and this conversation, and after each of your replies it re-ranks them around the work in progress. A [Suggestions pane] note lists the open suggestions with the person's message whenever they change. When one is relevant to what the person is doing, you may mention it briefly; don't manage or repeat the list. When the person asks you to work on one, just do the work.`
+const GUIDANCE = `The person has a Suggestions pane beside this chat (the "suggestions" mod). It shows 3-5 specific suggestions for moving the project they're working on toward its goal, ranked by impact and including at least one creative idea, drawn from the project's folder and this conversation, and after each of your replies it re-ranks them around the work in progress. A [Suggestions pane] note lists the open suggestions with the person's message whenever they change. When one is relevant to what the person is doing, you may mention it briefly; don't manage or repeat the list. When the person asks you to work on one, just do the work.`
 
 // ---------- the project folder ----------
 
@@ -624,6 +624,36 @@ async function review(
   if (parts.length > 0) $.ui.toast(`Suggestions: ${parts.join(', ')}`)
 }
 
+// "Do it with Claude". Where the Prompt Master mod is installed, the draft
+// goes through its rewrite and lands sharpened in the prompt box to review
+// and send. Where it isn't, or the person has their own draft in the box
+// (the rewrite would replace it), or the rewrite fails, the draft is sent
+// as it is.
+async function startSuggestion(
+  $: Pick<CoreEngineInterface, 'command' | 'prompt' | 'ui'>,
+  projectName: string | null,
+  s: Suggestion,
+) {
+  const draft = `Let's work on this suggestion for my project${
+    projectName ? ` "${projectName}"` : ''
+  }: ${s.title}. (${s.why}) Start with the most useful first step.`
+  try {
+    const commands = await $.command.list()
+    const box = await $.prompt.read()
+    if (commands.some(c => c.name === 'prompt-master') && box.text.trim() === '') {
+      await $.command.run({ command: 'prompt-master', args: draft } as Parameters<typeof $.command.run>[0])
+      const after = await $.prompt.read()
+      if (after.text.trim() !== '') {
+        $.ui.toast('Prompt Master sharpened it: review it in the prompt box, then press Enter')
+        return
+      }
+    }
+  } catch {
+    // Fall through and send the draft as it is.
+  }
+  await $.prompt.submit({ text: draft })
+}
+
 // What /next, /todo and /suggest do with what follows the command.
 async function runCommand(
   $: Pick<CoreEngineInterface, 'fs' | 'model' | 'state' | 'store' | 'ui'>,
@@ -694,7 +724,7 @@ export const register: Register = on => {
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
     return {
-      sections: [...composed.sections, { id: 'todo:guidance', text: GUIDANCE, scope: 'session' }],
+      sections: [...composed.sections, { id: 'suggestions:guidance', text: GUIDANCE, scope: 'session' }],
     }
   })
 
@@ -753,10 +783,7 @@ export const register: Register = on => {
     const isAuto = await read($, auto)
 
     const mark = (id: string, status: Suggestion['status']) => void save($, all => setStatus(all, id, status))
-    const doIt = (s: Suggestion) =>
-      void $.prompt.submit({
-        text: `Let's work on this suggestion for my project${f ? ` "${f.name}"` : ''}: ${s.title}. (${s.why}) Start with the most useful first step.`,
-      })
+    const doIt = (s: Suggestion) => void startSuggestion($, f?.name ?? null, s)
     const refreshNow = () => {
       if (f) void refresh($, f, true)
     }

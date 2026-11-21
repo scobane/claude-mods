@@ -20,7 +20,7 @@ export type Focus = { id: string; name: string; folder?: string }
 
 declare module 'claude-code' {
   interface PluginState {
-    todo: {
+    suggestions: {
       projects: Shaped<Project[]>
       focus: Shaped<Focus | null>
       // What the pane is doing in the background, shown at its top.
