@@ -1,0 +1,11 @@
+{
+  "name": "local-mods",
+  "owner": { "name": "scobane" },
+  "plugins": [
+    {
+      "name": "todo",
+      "source": "./plugins/todo",
+      "description": "A next-steps assistant: each project's goal and one clear next step, kept current by Claude"
+    }
+  ]
+}
