@@ -24,7 +24,8 @@ you're working on closer to its goal: "here is what else you can do".
   **Not useful** clear it. Cleared suggestions are never suggested again.
   With **Prompt Master** installed too, **Do it with Claude** first sharpens
   the request and puts it in the prompt box to review and send (unless you
-  already have a draft there).
+  already have a draft there); where the box can't be filled, it sends the
+  sharpened request.
 - **Follows the work.** After each of Claude's replies it re-ranks the list
   around what was just done and what's in progress: it ticks off what the
   exchange finished, leads with the next useful moves for the work at hand,

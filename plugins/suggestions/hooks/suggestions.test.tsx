@@ -56,8 +56,10 @@ function engine(on: any, disk: Map<string, unknown>, projectDir?: string) {
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.toast', () => ({ value: undefined }))
   const seen: (readonly string[] | undefined)[] = []
+  const sentTexts: string[] = []
   on('prompt.submit', (_: unknown, e: { text: string; context?: readonly string[] }) => {
     seen.push(e.context)
+    sentTexts.push(e.text)
     return { text: e.text }
   })
   on('session.start', (_: unknown, e: { cwd: string }) => ({ cwd: e.cwd }))
@@ -95,7 +97,7 @@ function engine(on: any, disk: Map<string, unknown>, projectDir?: string) {
         ? 'export function search(q) { /* TODO */ }'
         : 'list.innerHTML = recipe.text',
   }))
-  return { clock, listed, seen }
+  return { clock, listed, seen, sentTexts }
 }
 
 async function startInFolder($: any, clock: any) {
@@ -576,5 +578,29 @@ test('Do it with Claude goes through Prompt Master when it can, and sends direct
   await ui.press({ key: 'do-1' })
   expect(rewrites.length).toBe(1)
   expect(sent()).toBe(before + 2)
+  await ui.unmount()
+})
+
+test("where the prompt box can't be filled, Prompt Master's rewrite is sent instead of the plain request", async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, sentTexts } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  on('command.list', () => ({
+    value: [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }],
+  }))
+  on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
+  let reply = 'Escape the recipe text in src/app.js before it goes into innerHTML. Done when a < renders.'
+  on('command.run', () => ({ text: reply }))
+  await startInFolder($, clock)
+
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'do-1' })
+  expect(sentTexts[sentTexts.length - 1]).toBe(reply)
+
+  // A Prompt Master error is never sent as the prompt: the plain request is.
+  reply = 'Prompt Master failed: api-error'
+  await ui.press({ key: 'do-2' })
+  expect(sentTexts[sentTexts.length - 1]).toContain("Let's work on this suggestion")
+  expect(sentTexts[sentTexts.length - 1]).toContain('Add the search box the README promises')
   await ui.unmount()
 })

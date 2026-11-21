@@ -1,6 +1,6 @@
 {
   "name": "suggestions",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Suggestions for your project: specific things you can do to improve it, drawn from its folder and your chat",
   "types": "./types/index.d.ts"
 }
