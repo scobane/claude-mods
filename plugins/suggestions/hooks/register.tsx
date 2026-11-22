@@ -214,55 +214,153 @@ async function review(
   if (parts.length > 0) $.ui.toast(`Suggestions: ${parts.join(', ')}`)
 }
 
-// What /prompt-master answered, when it is the rewritten prompt itself: not
-// its "it's in the box" line, its usage line or one of its errors.
-function sharpenedFrom(answer: string | undefined): string | null {
+// What /prompt-master answered, sorted: its "it's in the box" line, one of
+// its errors or its usage line, the rewritten prompt itself (where it couldn't
+// fill the box), or nothing to go on. Matched anywhere in the text, so a
+// "prompt-master: " label in front doesn't hide it.
+type PromptMasterAnswer = 'in-box' | 'failed' | 'rewrite' | 'unclear'
+function readPromptMaster(answer: string | undefined): PromptMasterAnswer {
   const t = answer?.trim() ?? ''
-  if (!t) return null
-  if (/^(Rewritten prompt is in the box|Usage:|Prompt Master (failed|got an empty reply))/.test(t)) return null
-  return t
+  if (!t) return 'unclear'
+  if (/Rewritten prompt is in the box/.test(t)) return 'in-box'
+  if (/Prompt Master (failed|got an empty reply)|^Usage:/.test(t)) return 'failed'
+  return 'rewrite'
 }
 
-// "Do it with Claude". Where the Prompt Master mod is installed, the draft
-// goes through its rewrite and lands sharpened in the prompt box to review
-// and send; where the box can't be filled, the sharpened version is sent.
-// Where it isn't installed, or the person has their own draft in the box
-// (the rewrite would replace it), or the rewrite fails, the draft is sent
-// as it is.
+const HANDOFF_LOG_KEY = 'handoffLog'
+
+// Keeps the last few hand-offs in the mod's saved data, to see what really
+// happened on a click.
+async function logHandoff($: Pick<CoreEngineInterface, 'store'>, entry: Record<string, unknown>) {
+  try {
+    const before = await $.store.get(HANDOFF_LOG_KEY)
+    const list = Array.isArray(before) ? before.slice(-4) : []
+    await $.store.set(HANDOFF_LOG_KEY, [...list, entry])
+  } catch {
+    // A log that can't be written changes nothing.
+  }
+}
+
+// Whether this card's request went into the prompt box in the last
+// 15 minutes, by the hand-off log.
+async function wasJustPutInBox($: Pick<CoreEngineInterface, 'store'>, cardId: string): Promise<boolean> {
+  const list = await $.store.get(HANDOFF_LOG_KEY)
+  if (!Array.isArray(list)) return false
+  const last = [...list].reverse().find(
+    (one: unknown) => typeof one === 'object' && one !== null && (one as Record<string, unknown>).card === cardId,
+  ) as Record<string, unknown> | undefined
+  if (!last || last.outcome !== 'in-box' || typeof last.at !== 'string') return false
+  return Date.now() - Date.parse(last.at) < 15 * 60 * 1000
+}
+
+// "Do it with Claude". Where the Prompt Master mod is installed and the
+// prompt box is empty, the draft goes through its rewrite and lands sharpened
+// in the box to review and send; where the box can't be filled, the sharpened
+// version is sent. Once Prompt Master has run, nothing else is sent unless it
+// clearly failed or clearly handed back the rewrite, so a request is never
+// sent twice. Where it isn't installed, the person has their own draft in the
+// box (the rewrite would replace it), or it can't be started, the draft is
+// sent as it is.
+// True while a "Do it with Claude" hand-off is running: a second click in
+// that time (a quick double click) would start Prompt Master again.
+let isHandingOff = false
+
 async function startSuggestion(
-  $: Pick<CoreEngineInterface, 'command' | 'prompt' | 'ui'>,
+  $: Pick<CoreEngineInterface, 'command' | 'prompt' | 'ui' | 'store'>,
+  projectName: string | null,
+  s: Suggestion,
+) {
+  if (isHandingOff) {
+    $.ui.toast('Still sharpening the last one: it will be in your prompt box in a moment')
+    return
+  }
+  isHandingOff = true
+  try {
+    await handOff($, projectName, s)
+  } finally {
+    isHandingOff = false
+  }
+}
+
+async function handOff(
+  $: Pick<CoreEngineInterface, 'command' | 'prompt' | 'ui' | 'store'>,
   projectName: string | null,
   s: Suggestion,
 ) {
   const draft = `Let's work on this suggestion for my project${
     projectName ? ` "${projectName}"` : ''
   }: ${s.title}. (${s.why}) Start with the most useful first step.`
+  const log: Record<string, unknown> = { at: new Date().toISOString(), card: s.id }
+
+  let usePromptMaster = false
   try {
     const commands = await $.command.list()
     const box = await $.prompt.read()
-    if (commands.some(c => c.name === 'prompt-master') && box.text.trim() === '') {
-      const ran = await $.command.run({ command: 'prompt-master', args: draft } as Parameters<typeof $.command.run>[0])
-      // Prompt Master says when its rewrite is in the box; reading the box
-      // back can miss it (the fill reaches the surface after the read).
-      const isInBox = /^Rewritten prompt is in the box/.test(ran.text?.trim() ?? '')
-      const after = await $.prompt.read()
-      if (isInBox || after.text.trim() !== '') {
-        $.ui.toast('Prompt Master sharpened it: review it in the prompt box, then press Enter')
-        return
-      }
-      // Where the prompt box can't be filled, Prompt Master answers with the
-      // rewritten prompt itself: send that rather than the plain draft.
-      const rewritten = sharpenedFrom(ran.text)
-      if (rewritten) {
-        await $.prompt.submit({ text: rewritten })
-        $.ui.toast('Prompt Master sharpened it and sent it')
-        return
-      }
+    log.hasPromptMaster = commands.some(c => c.name === 'prompt-master')
+    log.boxBefore = box.text.length
+    usePromptMaster = log.hasPromptMaster === true && box.text.trim() === ''
+    // A second click on the same card while its rewrite still sits in the
+    // box: that text is ours, not the person's draft, so send nothing more.
+    if (box.text.trim() !== '' && (await wasJustPutInBox($, s.id))) {
+      log.outcome = 'repeat-click'
+      await logHandoff($, log)
+      $.ui.toast("It's already in your prompt box: press Enter to send it")
+      return
     }
-  } catch {
-    // Fall through and send the draft as it is.
+  } catch (err) {
+    log.checkError = String(err)
   }
-  await $.prompt.submit({ text: draft })
+  if (!usePromptMaster) {
+    log.outcome = 'sent-plain'
+    await logHandoff($, log)
+    await $.prompt.submit({ text: draft })
+    return
+  }
+
+  let answer: string | undefined
+  try {
+    const ran = await $.command.run({ command: 'prompt-master', args: draft } as Parameters<typeof $.command.run>[0])
+    answer = ran.text
+    log.answer = answer === undefined ? null : answer.slice(0, 300)
+  } catch (err) {
+    // It never ran: send the request as it is.
+    log.runError = String(err)
+    log.outcome = 'sent-plain'
+    await logHandoff($, log)
+    await $.prompt.submit({ text: draft })
+    return
+  }
+
+  let boxAfter = ''
+  try {
+    boxAfter = (await $.prompt.read()).text
+  } catch (err) {
+    log.readError = String(err)
+  }
+  log.boxAfter = boxAfter.length
+  const kind = boxAfter.trim() !== '' ? 'in-box' : readPromptMaster(answer)
+  log.kind = kind
+
+  if (kind === 'failed') {
+    log.outcome = 'sent-plain'
+    await logHandoff($, log)
+    await $.prompt.submit({ text: draft })
+    return
+  }
+  if (kind === 'rewrite' && answer) {
+    log.outcome = 'sent-rewrite'
+    await logHandoff($, log)
+    await $.prompt.submit({ text: answer.trim().replace(/^prompt-master:\s*/i, '') })
+    $.ui.toast('Prompt Master sharpened it and sent it')
+    return
+  }
+  log.outcome = kind === 'in-box' ? 'in-box' : 'nothing-sent'
+  await logHandoff($, log)
+  $.ui.toast(
+    kind === 'in-box'
+      ? 'Prompt Master sharpened it: review it in the prompt box, then press Enter'
+      : 'Prompt Master ran: check the prompt box, then press Enter',
+  )
 }
 
 // What /next, /todo and /suggest do with what follows the command.

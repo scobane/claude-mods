@@ -633,3 +633,87 @@ test("when Prompt Master says the rewrite is in the box, nothing else is sent, e
   expect(sentTexts.length).toBe(before)
   await ui.unmount()
 })
+
+test('when Prompt Master gives nothing to go on, nothing is sent, and each click is logged', async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, sentTexts } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  on('command.list', () => ({
+    value: [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }],
+  }))
+  on('prompt.read', () => ({ value: { text: '', cursor: 0 } }))
+  let reply: string | undefined
+  on('command.run', () => (reply === undefined ? {} : { text: reply }))
+  await startInFolder($, clock)
+
+  const before = sentTexts.length
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'do-1' })
+  expect(sentTexts.length).toBe(before)
+
+  // A label in front of the "in the box" line still counts as in the box.
+  reply = 'prompt-master: Rewritten prompt is in the box: edit it or press Enter to send.'
+  await ui.press({ key: 'do-2' })
+  expect(sentTexts.length).toBe(before)
+  await ui.unmount()
+
+  const log = disk.get('handoffLog') as { outcome: string; answer: string | null }[]
+  expect(log.map(one => one.outcome)).toEqual(['nothing-sent', 'in-box'])
+  expect(log[0]?.answer).toBe(null)
+})
+
+test("a second click on the same card while its rewrite is in the box sends nothing", async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, sentTexts } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  on('command.list', () => ({
+    value: [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }],
+  }))
+  let box = ''
+  on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))
+  on('command.run', (_, e) => {
+    box = `SHARPENED: ${e.args}`
+    return { text: 'Rewritten prompt is in the box: edit it or press Enter to send.' }
+  })
+  await startInFolder($, clock)
+
+  const before = sentTexts.length
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.press({ key: 'do-1' })
+  await ui.press({ key: 'do-1' })
+  expect(sentTexts.length).toBe(before)
+  const log = disk.get('handoffLog') as { outcome: string }[]
+  expect(log.map(one => one.outcome)).toEqual(['in-box', 'repeat-click'])
+
+  // Another card with the person's text in the box still sends as it is.
+  await ui.press({ key: 'do-2' })
+  expect(sentTexts.length).toBe(before + 1)
+  await ui.unmount()
+})
+
+test('a quick double click runs Prompt Master once', async ($, on) => {
+  const disk = new Map<string, unknown>()
+  const { clock, sentTexts } = engine(on, disk)
+  on('model.complete', () => ({ value: { isAnswered: true, usage: USAGE, text: FIRST_SET } }))
+  on('command.list', () => ({
+    value: [{ name: 'prompt-master', description: '', source: 'plugin', isFullscreen: false }],
+  }))
+  let box = ''
+  on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))
+  let runs = 0
+  on('command.run', (_, e) => {
+    runs += 1
+    box = `SHARPENED: ${e.args}`
+    return { text: 'Rewritten prompt is in the box: edit it or press Enter to send.' }
+  })
+  await startInFolder($, clock)
+
+  const before = sentTexts.length
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await Promise.all([ui.press({ key: 'do-1' }), ui.press({ key: 'do-1' })])
+  expect(runs).toBe(1)
+  expect(sentTexts.length).toBe(before)
+  const log = disk.get('handoffLog') as { outcome: string }[]
+  expect(log.map(one => one.outcome)).toEqual(['in-box'])
+  await ui.unmount()
+})
